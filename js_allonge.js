@@ -1,5 +1,10 @@
+default(func, [undefined, null, 0])
+default(func, [{baz: 10, k: 10, b: [1,2,3]}])
+
+var _slice = Array.prototype.slice;
+
 var args = function args(args, start, stop) {
-  return Array.prototype.slice.apply(
+  return _slice(
     args, [start || undefined, stop || undefined]
   );
 }
@@ -20,6 +25,14 @@ var once = function (fn, context) {
   };
 }
 
+var bind = function(fn, ctx) {
+  return function() {
+    fn.apply(ctx, arguments);
+  };
+};
+
+(function(f) { return f; }).apply(this, [f])
+
 var maybe = function(fn, context) {
   return function (a) {
     if (a === undefined || a === null) return;
@@ -27,6 +40,94 @@ var maybe = function(fn, context) {
     return fn.call(context || null, a);
   }
 }
+
+
+var mapWith = function(fn) {
+  return function(arr) {
+    return arr.map(fn);
+  };
+};
+
+var flip = function(fn) {
+  return function(first) {
+    return function(second) {
+      return fn.call(this, second, first);
+    };
+  };
+};
+
+var flipExtended = function(fn) {
+  return function(first, second) {
+    if (arguments.length === 2) {
+
+    }
+    return function(second) {
+      return fn.call(this, second, first)
+    };
+  };
+};
+
+var mapWith = flip(map);
+
+(function() {
+// allonge version — unclear why nested extra func ..
+function mapWith (fn) {
+  return function (list) {
+    return Array.prototype.map.call(list, function (something) {
+      return fn.call(this, something);
+    });
+  };
+};
+})();
+
+function rec(fn) {
+  return function () {
+    fn.apply(fn, arguments)
+  }
+};
+
+/**
+ * Takes non-recursive function and makes 'this' inside
+ * that function refer to itself.
+ *
+ * @param {Function} fn [description]
+ */
+function Y (fn) {
+  function f (recursable) {
+    return function () { // <- what gets returned from the initial call to Y(factorize)
+      return fn.apply(recursable, arguments) // <- arguments is from factorial(5), i.e. 5
+    }
+  }
+
+  function rec (x) {
+    return f(setupRecursion);
+
+    function setupRecursion (value, m) {
+      // set up to continue recursion
+      var recursable = x(x);
+      return recursable(value, m);
+    }
+  }
+
+  return rec(rec);
+}
+
+var factorize = function (n) {
+  console.log(n);
+
+  if (n == 0) {
+    return 1;
+  } else {
+    return n * this(n - 1)
+  }
+}
+
+var factorial = Y(factorize);
+
+factorial(5)
+
+
+
 
 /**
  * Makes a function with a fixed number of arguments
@@ -118,11 +219,12 @@ var tap = function(value) {
 
 var curriedTap = function (value, fn) {
   var curried = function () {
-    if (typeof fn === function) {
+    if (typeof fn === "function") {
       return fn(value)
     }
     return value;
-  }
+  };
+
   if (fn === undefined)
     return curried;
   return curried(fn);
